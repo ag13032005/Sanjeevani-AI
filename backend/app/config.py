@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     jwt_expires_minutes: int = 120
     openweather_api_key: str = ""
     openweather_base_url: str = "https://api.openweathermap.org"
+    thingspeak_base_url: str = "https://api.thingspeak.com"
+    thingspeak_channel_id: str = ""
+    thingspeak_read_api_key: str = ""
+    ollama_generate_url: str = "http://localhost:11434/api/generate"
+    ollama_model: str = "llama3.2"
     frontend_origin: str = "http://localhost:3000"
 
 

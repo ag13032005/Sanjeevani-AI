@@ -12,6 +12,21 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem('sanjeevani_auth')
+      localStorage.removeItem('sanjeevani_token')
+      window.dispatchEvent(new Event('sanjeevani:session-expired'))
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 export async function signup(data) {
   const response = await api.post('/signup', data)
   return response.data
@@ -61,6 +76,11 @@ export async function uploadReport(formData) {
 
 export async function getReports() {
   const response = await api.get('/reports')
+  return response.data
+}
+
+export async function getIotLive() {
+  const response = await api.get('/iot-live')
   return response.data
 }
 

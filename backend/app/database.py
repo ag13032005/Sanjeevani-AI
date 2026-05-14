@@ -75,6 +75,7 @@ class InMemoryDatabase:
     users: InMemoryCollection = field(default_factory=InMemoryCollection)
     predictions: InMemoryCollection = field(default_factory=InMemoryCollection)
     reports: InMemoryCollection = field(default_factory=InMemoryCollection)
+    iot_records: InMemoryCollection = field(default_factory=InMemoryCollection)
 
 
 async def connect_to_mongo() -> None:

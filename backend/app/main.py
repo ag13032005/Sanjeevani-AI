@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.database import close_mongo_connection, connect_to_mongo
 from app.routes.auth import router as auth_router
+from app.routes.iot import router as iot_router
 from app.routes.prediction import router as prediction_router
 from app.routes.report import router as report_router
 from app.routes.reports import router as reports_router
@@ -35,6 +36,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(weather_router)
 app.include_router(prediction_router)
+app.include_router(iot_router)
 app.include_router(report_router)
 app.include_router(reports_router)
 

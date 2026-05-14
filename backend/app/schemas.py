@@ -133,3 +133,20 @@ class ReportSummary(BaseModel):
     insights: list[str]
     alerts: list[str]
     recommendation: str
+
+
+class IotPrediction(BaseModel):
+    risk: RiskLevel
+    disease: Literal["Dengue", "Flu", "Respiratory", "Normal"]
+    confidence: float
+
+
+class IotLiveResponse(BaseModel):
+    timestamp: datetime
+    vitals: dict
+    cleaned_vitals: dict
+    warnings: list[str]
+    prediction: IotPrediction
+    explanation: str
+    alerts: list[str]
+    recommendations: list[str]

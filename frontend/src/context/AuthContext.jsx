@@ -9,15 +9,36 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem(storageKey)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      setAuth(parsed)
-      if (parsed.token) {
-        localStorage.setItem('sanjeevani_token', parsed.token)
+    const hydrateAuth = () => {
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          setAuth(parsed)
+          if (parsed.token) {
+            localStorage.setItem('sanjeevani_token', parsed.token)
+          }
+          return
+        } catch {
+          localStorage.removeItem(storageKey)
+          localStorage.removeItem('sanjeevani_token')
+        }
       }
+      setAuth({ token: '', user: null })
     }
+
+    hydrateAuth()
+
+    const handleSessionExpired = () => {
+      setAuth({ token: '', user: null })
+    }
+
+    window.addEventListener('sanjeevani:session-expired', handleSessionExpired)
     setReady(true)
+
+    return () => {
+      window.removeEventListener('sanjeevani:session-expired', handleSessionExpired)
+    }
   }, [])
 
   const persist = (nextAuth) => {

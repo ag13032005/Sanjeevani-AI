@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAqi, getHistory, getReport, getWeather, predict } from '../services/api'
+import { getAqi, getHistory, getIotLive, getReport, getReports, getWeather, predict } from '../services/api'
 import MetricCard from '../components/MetricCard'
 import PredictionChart from '../components/PredictionChart'
 import { useAuth } from '../context/useAuth'
 import ReportGrid from '../components/report/ReportGrid'
 import { Link } from 'react-router-dom'
-import { getReports } from '../services/api'
 
 const riskCopy = {
   Low: { tone: 'Low', accent: 'from-lime to-aqua', text: 'Current conditions look stable, but continued monitoring is still useful.' },
@@ -23,6 +22,9 @@ export default function DashboardPage() {
   const [weather, setWeather] = useState(null)
   const [aqi, setAqi] = useState(null)
   const [prediction, setPrediction] = useState(null)
+  const [iotLive, setIotLive] = useState(null)
+  const [iotLoading, setIotLoading] = useState(false)
+  const [iotError, setIotError] = useState('')
   const [history, setHistory] = useState([])
   const [reports, setReports] = useState([])
   const [showHistory, setShowHistory] = useState(false)
@@ -45,6 +47,14 @@ export default function DashboardPage() {
   const risk = prediction?.risk_level || 'Low'
   const riskData = riskCopy[risk] || riskCopy.Low
 
+  const getApiErrorMessage = (err, fallback) => {
+    const detail = err?.response?.data?.detail
+    if (err?.response?.status === 401 || detail === 'Could not validate credentials') {
+      return 'Session expired. Please login again.'
+    }
+    return detail || fallback
+  }
+
   const loadHistory = async () => {
     try {
       const data = await getHistory()
@@ -63,9 +73,33 @@ export default function DashboardPage() {
     }
   }
 
+  const loadIotLive = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setIotLoading(true)
+    }
+    setIotError('')
+    try {
+      const data = await getIotLive()
+      setIotLive(data)
+    } catch (err) {
+      setIotError(getApiErrorMessage(err, 'Unable to fetch IoT vitals'))
+    } finally {
+      if (!silent) {
+        setIotLoading(false)
+      }
+    }
+  }
+
   useEffect(() => {
     loadHistory()
     loadReports()
+    loadIotLive()
+
+    const intervalId = window.setInterval(() => {
+      loadIotLive({ silent: true })
+    }, 3000)
+
+    return () => window.clearInterval(intervalId)
   }, [])
 
   useEffect(() => {
@@ -112,7 +146,7 @@ export default function DashboardPage() {
       setPrediction(predictionData)
       await loadHistory()
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Unable to run prediction')
+      setError(getApiErrorMessage(err, 'Unable to run prediction'))
     } finally {
       setLoading(false)
     }
@@ -140,7 +174,7 @@ export default function DashboardPage() {
       setReport(data)
       await loadReports()
     } catch (err) {
-      setReportError(err?.response?.data?.detail || 'Unable to generate report')
+      setReportError(getApiErrorMessage(err, 'Unable to generate report'))
     } finally {
       setReportLoading(false)
     }
@@ -155,6 +189,9 @@ export default function DashboardPage() {
       { label: 'AQI', value: aqi ? `${aqi.aqi}` : '—', helper: aqi ? `${aqi.category} air quality` : 'Air pollution is fetched in real time for the selected location.', accent: 'from-ember to-ocean' },
     ]
   }, [prediction, weather, aqi, riskData])
+
+  const iotVitals = iotLive?.vitals || {}
+  const iotPrediction = iotLive?.prediction || null
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -198,6 +235,84 @@ export default function DashboardPage() {
         {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} />
         ))}
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.26em] text-gray-400">IoT Live Feed</p>
+              <h3 className="font-display text-xl text-white">ThingSpeak real-time vitals</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadIotLive()}
+              disabled={iotLoading}
+              className="rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/10 disabled:opacity-70"
+            >
+              {iotLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+
+          {iotError ? <p className="mb-4 rounded-xl border border-red-400 bg-red-500/20 px-3 py-2 text-sm text-white">{iotError}</p> : null}
+
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+              <p className="text-sm text-gray-400">Temperature</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{typeof iotVitals.temperature === 'number' ? `${iotVitals.temperature.toFixed(1)}°C` : '—'}</p>
+            </div>
+            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+              <p className="text-sm text-gray-400">Blood Pressure</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{iotVitals.bp || '—'}</p>
+            </div>
+            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+              <p className="text-sm text-gray-400">SpO2</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{typeof iotVitals.spo2 === 'number' ? `${iotVitals.spo2.toFixed(1)}%` : '—'}</p>
+            </div>
+            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+              <p className="text-sm text-gray-400">Heart Rate</p>
+              <p className="mt-2 text-2xl font-semibold text-white">{typeof iotVitals.heart_rate === 'number' ? `${Math.round(iotVitals.heart_rate)} bpm` : '—'}</p>
+            </div>
+            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+              <p className="text-sm text-gray-400">ECG</p>
+              <p className="mt-2 text-sm font-semibold text-white">{iotVitals.ecg || '—'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+            <p className="text-sm uppercase tracking-[0.26em] text-gray-400">Prediction Panel</p>
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-white">Risk</p>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${iotPrediction?.risk === 'High' ? 'bg-red-500/20 text-red-200' : iotPrediction?.risk === 'Medium' ? 'bg-yellow-500/20 text-yellow-100' : 'bg-green-500/20 text-green-100'}`}>
+                {iotPrediction?.risk || '—'}
+              </span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-white">Disease</p>
+              <span className="text-sm text-gray-400">{iotPrediction?.disease || '—'}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-white">Confidence</p>
+              <span className="text-sm text-gray-400">{typeof iotPrediction?.confidence === 'number' ? `${Math.round(iotPrediction.confidence * 100)}%` : '—'}</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
+            <p className="text-sm uppercase tracking-[0.26em] text-gray-400">AI Insights Panel</p>
+            <p className="mt-3 text-sm leading-6 text-white">{iotLive?.explanation || 'Awaiting IoT analysis from Ollama.'}</p>
+            <div className="mt-4 space-y-2">
+              {(iotLive?.alerts || []).length ? (
+                iotLive.alerts.map((item) => (
+                  <p key={item} className="rounded-xl border border-red-400 bg-red-500/20 px-3 py-2 text-sm text-white">{item}</p>
+                ))
+              ) : (
+                <p className="text-sm text-gray-400">No active alerts from live IoT stream.</p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
