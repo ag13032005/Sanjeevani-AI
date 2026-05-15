@@ -2,11 +2,32 @@ import { useEffect, useState } from 'react'
 import LocationMap from '../components/LocationMap'
 import { getHistory, getWeather, getAqi } from '../services/api'
 
+const defaultLatitude = 19.076
+const defaultLongitude = 72.8777
+
 export default function MapPage() {
-  const [lat, setLat] = useState(19.076)
-  const [lon, setLon] = useState(72.8777)
+  const [lat, setLat] = useState(defaultLatitude)
+  const [lon, setLon] = useState(defaultLongitude)
   const [riskLevel, setRiskLevel] = useState('Low')
   const [info, setInfo] = useState(null)
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLat(position.coords.latitude)
+        setLon(position.coords.longitude)
+      },
+      () => {
+        setLat(defaultLatitude)
+        setLon(defaultLongitude)
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 },
+    )
+  }, [])
 
   useEffect(() => {
     const refresh = async () => {
@@ -46,7 +67,10 @@ export default function MapPage() {
             <p className="mt-2">{info ? `${info.weather.temperature.toFixed(1)}°C, AQI ${info.aqi.aqi}, ${info.historyCount} history records` : 'Loading live context...'}</p>
           </div>
         </div>
-        <LocationMap lat={lat} lon={lon} riskLevel={riskLevel} />
+        <LocationMap lat={lat} lon={lon} riskLevel={riskLevel} onSelectLocation={(nextLat, nextLon) => {
+          setLat(nextLat)
+          setLon(nextLon)
+        }} />
       </div>
     </div>
   )

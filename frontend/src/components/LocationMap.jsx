@@ -1,4 +1,4 @@
-import { MapContainer, Marker, Popup, Circle, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Popup, Circle, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { useEffect } from 'react'
@@ -21,7 +21,19 @@ function Recenter({ center }) {
   return null
 }
 
-export default function LocationMap({ lat, lon, riskLevel }) {
+function MapClickHandler({ onSelectLocation }) {
+  useMapEvents({
+    click(event) {
+      if (onSelectLocation) {
+        onSelectLocation(event.latlng.lat, event.latlng.lng)
+      }
+    },
+  })
+
+  return null
+}
+
+export default function LocationMap({ lat, lon, riskLevel, onSelectLocation }) {
   const center = [lat || 20.5937, lon || 78.9629]
   const color = riskLevel === 'High' ? '#ff8a5b' : riskLevel === 'Medium' ? '#f4c430' : '#8ed081'
 
@@ -34,6 +46,7 @@ export default function LocationMap({ lat, lon, riskLevel }) {
       <div className="h-[420px]">
         <MapContainer center={center} zoom={7} className="h-full w-full">
           <Recenter center={center} />
+          <MapClickHandler onSelectLocation={onSelectLocation} />
           <TileLayer
             attribution='&copy; OpenStreetMap contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

@@ -216,10 +216,31 @@ def _extract_alerts(text: str) -> list[str]:
         stripped = line.strip(" -\t")
         if not stripped:
             continue
+        if ":" in stripped:
+            section, value = stripped.split(":", 1)
+            if section.lower().strip() in {"alerts", "alert"}:
+                alerts.extend(item.strip() for item in value.split(";") if item.strip())
+                continue
         lowered = stripped.lower()
         if any(keyword in lowered for keyword in ["alert", "critical", "abnormal", "risk", "urgent", "warning"]):
             alerts.append(stripped)
     return alerts[:6]
+
+
+def _extract_recommendations(text: str) -> list[str]:
+    recommendations: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip(" -\t")
+        if not stripped:
+            continue
+        if ":" in stripped:
+            section, value = stripped.split(":", 1)
+            if section.lower().strip() in {"recommendations", "recommendation"}:
+                recommendations.extend(item.strip() for item in value.split(";") if item.strip())
+                continue
+        if "recommend" in stripped.lower():
+            recommendations.append(stripped)
+    return recommendations[:3]
 
 
 async def ollama_analysis(cleaned_vitals: dict, prediction: dict, warnings: list[str]) -> dict:
@@ -249,14 +270,13 @@ async def ollama_analysis(cleaned_vitals: dict, prediction: dict, warnings: list
             output = response.json().get("response", "").strip()
     except Exception:
         output = (
-            "Explanation: Vitals indicate active monitoring need. "
-            "Alerts: Review oxygen saturation, blood pressure, and heart rate against trends. "
+            "Explanation: Vitals indicate active monitoring need.\n"
+            "Alerts: Review oxygen saturation, blood pressure, and heart rate against trends.\n"
             "Recommendations: Re-check sensors, repeat readings, and seek clinician review if symptoms persist."
         )
 
     alerts = _extract_alerts(output)
-    recommendation_lines = [line.strip(" -\t") for line in output.splitlines() if "recommend" in line.lower()]
-    recommendations = recommendation_lines[:3] if recommendation_lines else ["Repeat measurements and consult a clinician if abnormal patterns continue."]
+    recommendations = _extract_recommendations(output) or ["Repeat measurements and consult a clinician if abnormal patterns continue."]
 
     return {
         "explanation": output,

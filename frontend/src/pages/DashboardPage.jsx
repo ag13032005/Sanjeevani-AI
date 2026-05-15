@@ -301,7 +301,9 @@ export default function DashboardPage() {
 
           <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-5 shadow-lg">
             <p className="text-sm uppercase tracking-[0.26em] text-gray-400">AI Insights Panel</p>
-            <p className="mt-3 text-sm leading-6 text-white">{iotLive?.explanation || 'Awaiting IoT analysis from Ollama.'}</p>
+            <p className="mt-3 whitespace-pre-line text-sm leading-6 text-white">
+              {iotLive?.explanation || 'Awaiting IoT analysis from Ollama.'}
+            </p>
             <div className="mt-4 space-y-2">
               {(iotLive?.alerts || []).length ? (
                 iotLive.alerts.map((item) => (
